@@ -5,7 +5,7 @@
 #include <vector>
 #include <math.h>
 
-#define MAX_COUNT 150      
+#define MAX_COUNT 100      
 #define PI 3.1415     
 
 using namespace cv;
@@ -63,15 +63,13 @@ inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, 
 		for (int i = 0; i < cornerCount; ++i)
 		{
 			cvLine(&image, cvPoint(cornersA[i].x, cornersA[i].y), cvPoint(cornersB[i].x, cornersA[i].y), CV_RGB(0, 255, 0), 2);
-
-			//printf("[%d] - Sheta:%lf, Length:%lf\n", i, fVecSetha, fVecLength);
 		}
 		Mat result(&image);
 		imshow("Origin", result);
 
 
 		//break        
-		if (cvWaitKey(10) >= 0)
+		if (cvWaitKey(1) >= 0)
 			break;
 	}
 
@@ -86,18 +84,18 @@ void main()
 	int cornerCount = MAX_COUNT;
 
 	//for FAST
-	int threshold = 20;
+	int threshold = 39;// 0 - 39
 	bool nonmaxSupression = true;
 
 	//for optical flow
 	int maxLevel = 3;
-	int winSize = 20;
-	TermCriteria criteria = cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 20, 0.03);
+	int winSize = 30;
+	TermCriteria criteria = cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 15, 0.3);
 
 
 	//Video Load     
 	//VideoCapture capture("D:\\Movies\\Experiment\\123.avi");
-	VideoCapture capture("C:\\Users\\kkuznets\\Desktop\\CV\\Experiment\\123.avi");
+	VideoCapture capture("C:\\Users\\kkuznets\\Desktop\\CV\\Experiment\\4.avi");
 
 	detect(capture, threshold, nonmaxSupression, winSize, maxLevel, cornerCount, criteria);
 	
