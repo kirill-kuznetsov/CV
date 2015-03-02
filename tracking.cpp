@@ -7,10 +7,11 @@
 
 #define MAX_COUNT 100      
 #define PI 3.1415     
+#include <locale>
 
 using namespace cv;
 
-inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, int winSize, int maxLevel, int cornerCount, TermCriteria &criteria){
+inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, int winSize, int maxLevel, int cornerCount, int iterations, double epsilon){
 	//T, T-1 image
 	Mat frame;
 	Mat nextFrame;
@@ -32,12 +33,22 @@ inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, 
 	feature_errors.reserve(MAX_COUNT);
 
 
+
+	TermCriteria criteria = cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, iterations, epsilon);
+
 	//capture a frame form cam        
 	if (!capture.isOpened())
 		return;
 
+
+	CvSize cv_size = cvSize(winSize, winSize);
+
 	//Routine Start     
 	while (1) {
+		//break        
+		if (cvWaitKey(30) >= 0)
+			break;
+
 		capture >> frame;
 		capture >> nextFrame;
 
@@ -51,26 +62,22 @@ inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, 
 		{
 			cornersA.push_back(it->pt);
 		}
-		cornerSubPix(grayFrame, cornersA, cvSize(winSize, winSize), cvSize(-1, -1), criteria);
-
-		features_found.clear();
-		feature_errors.clear();
+		cornerSubPix(grayFrame, cornersA, cv_size, cvSize(-1, -1), criteria);
 
 		calcOpticalFlowPyrLK(grayFrame, nextGrayFrame, cornersA, cornersB, features_found, feature_errors,
-			cvSize(winSize, winSize), maxLevel, criteria, 0);
+			cv_size, maxLevel, criteria, 0);
 
-		IplImage image = frame;
+		IplImage image = grayFrame;
 		for (int i = 0; i < cornerCount; ++i)
 		{
 			cvLine(&image, cvPoint(cornersA[i].x, cornersA[i].y), cvPoint(cornersB[i].x, cornersA[i].y), CV_RGB(0, 255, 0), 2);
 		}
 		Mat result(&image);
+
 		imshow("Origin", result);
 
 
-		//break        
-		if (cvWaitKey(1) >= 0)
-			break;
+		
 	}
 
 	//release capture point        
@@ -90,14 +97,28 @@ void main()
 	//for optical flow
 	int maxLevel = 3;
 	int winSize = 30;
-	TermCriteria criteria = cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 15, 0.3);
+	int iterations = 15;
+	double epsilon = 0.3;
 
 
 	//Video Load     
-	//VideoCapture capture("D:\\Movies\\Experiment\\123.avi");
-	VideoCapture capture("C:\\Users\\kkuznets\\Desktop\\CV\\Experiment\\4.avi");
+	VideoCapture capture("D:\\Movies\\Experiment\\123.avi");
+//	VideoCapture capture("C:\\Users\\kkuznets\\Desktop\\CV\\Experiment\\4.avi");
 
-	detect(capture, threshold, nonmaxSupression, winSize, maxLevel, cornerCount, criteria);
+	for (maxLevel = 1; maxLevel <= 3; maxLevel++)
+	{
+		for (iterations = 1; iterations < 30; iterations++)
+		{
+			for (winSize = 5; winSize < 40; winSize += 5)
+			{
+				clock_t timer = clock();
+				detect(capture, threshold, nonmaxSupression, winSize, maxLevel, cornerCount, iterations, epsilon);
+				timer -= clock();
+				double timerSec = timer / CLOCKS_PER_SEC;
+				printf("Level: %d\n, Iterations: %d\n, WinSize: %d\n, Time: %f\n\n", maxLevel, iterations, winSize, timerSec);
+			}
+		}
+	}
 	
 }
 
