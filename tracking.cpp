@@ -3,15 +3,17 @@
 #include "opencv2\features2d\features2d.hpp"
 #include "opencv2\highgui\highgui.hpp"
 #include <vector>
-#include <math.h>
+#include <math.h>    
+#include <locale>
+#include <conio.h>  
+//#include <GL/glut.h>
 
 #define MAX_COUNT 100      
-#define PI 3.1415     
-#include <locale>
+#define PI 3.1415 
 
 using namespace cv;
 
-inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, int winSize, int maxLevel, int cornerCount, int iterations, double epsilon){
+inline void detect(char* file, int threshold, bool nonmaxSupression, int winSize, int maxLevel, int cornerCount, int iterations, double epsilon){
 	//T, T-1 image
 	Mat frame;
 	Mat nextFrame;
@@ -20,8 +22,6 @@ inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, 
 	Mat grayFrame;
 	Mat nextGrayFrame;
 
-	//Window     
-	namedWindow("Origin", 1);
 
 	vector<KeyPoint> keypoints;
 	vector<Point2f> cornersA;
@@ -36,18 +36,17 @@ inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, 
 
 	TermCriteria criteria = cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, iterations, epsilon);
 
+	VideoCapture capture(file);
+
 	//capture a frame form cam        
 	if (!capture.isOpened())
 		return;
-
 
 	CvSize cv_size = cvSize(winSize, winSize);
 
 	//Routine Start     
 	while (1) {
-		//break        
-		if (cvWaitKey(30) >= 0)
-			break;
+		
 
 		capture >> frame;
 		capture >> nextFrame;
@@ -74,16 +73,20 @@ inline void detect(VideoCapture &capture, int threshold, bool nonmaxSupression, 
 		}
 		Mat result(&image);
 
-		imshow("Origin", result);
+		//break        
+//		if (cvWaitKey(30) >= 0)
+//			break;
+//
+//		imshow("Origin", result);
 
 
 		
 	}
 
-	//release capture point        
+
+	//release capture point     
 	capture.release();
-	//close the window        
-	destroyWindow("Origin");
+
 }
 
 void main()
@@ -102,23 +105,32 @@ void main()
 
 
 	//Video Load     
-	VideoCapture capture("D:\\Movies\\Experiment\\123.avi");
-//	VideoCapture capture("C:\\Users\\kkuznets\\Desktop\\CV\\Experiment\\4.avi");
+	char* file = "C:\\Users\\kkuznets\\Desktop\\CV\\Experiment\\4.avi";
+
+//	char* file = "D:\\Movies\\Experiment\\123.avi";
+
+
+	//Window     
+		namedWindow("Origin", 1);
 
 	for (maxLevel = 1; maxLevel <= 3; maxLevel++)
 	{
-		for (iterations = 1; iterations < 30; iterations++)
+		for (iterations = 2; iterations < 30; iterations++)
 		{
 			for (winSize = 5; winSize < 40; winSize += 5)
 			{
 				clock_t timer = clock();
-				detect(capture, threshold, nonmaxSupression, winSize, maxLevel, cornerCount, iterations, epsilon);
+				detect(file, threshold, nonmaxSupression, winSize, maxLevel, cornerCount, iterations, epsilon);
 				timer -= clock();
 				double timerSec = timer / CLOCKS_PER_SEC;
 				printf("Level: %d\n, Iterations: %d\n, WinSize: %d\n, Time: %f\n\n", maxLevel, iterations, winSize, timerSec);
 			}
 		}
 	}
+
+	waitKey(0);
+	//close the window        
+	destroyWindow("Origin");
 	
 }
 
