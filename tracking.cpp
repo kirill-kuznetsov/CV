@@ -5,34 +5,19 @@
 #include <vector>
 #include <math.h>    
 #include <locale>
-#include <conio.h>  
-//#include <GL/glut.h>
-
-#define MAX_COUNT 100      
+#define MAX_COUNT 300      
 #define PI 3.1415 
 
 using namespace cv;
 
 inline void detect(char* file, int threshold, bool nonmaxSupression, int winSize, int maxLevel, int cornerCount, int iterations, double epsilon){
-	//T, T-1 image
-	Mat frame;
-	Mat nextFrame;
-
 	//Optical Image     
-	Mat grayFrame;
-	Mat nextGrayFrame;
+	Mat prevGrayFrame, grayFrame,  image;
 
 
 	vector<KeyPoint> keypoints;
 	vector<Point2f> cornersA;
 	vector<Point2f> cornersB;
-
-	vector<uchar> features_found;
-	vector<float> feature_errors;
-	features_found.reserve(MAX_COUNT);
-	feature_errors.reserve(MAX_COUNT);
-
-
 
 	TermCriteria criteria = cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, iterations, epsilon);
 
@@ -42,47 +27,68 @@ inline void detect(char* file, int threshold, bool nonmaxSupression, int winSize
 	if (!capture.isOpened())
 		return;
 
-	CvSize cv_size = cvSize(winSize, winSize);
+	CvSize windowSize = cvSize(winSize, winSize);
+	int subPixSide = winSize < 11 ? winSize : winSize / 3 >= 11 ? winSize / 3 : 11;
+	CvSize subPixSize = cvSize(subPixSide, subPixSide);
 
+
+	bool needToInit = true;
 	//Routine Start     
 	while (1) {
 		
 
+
+		Mat frame;
 		capture >> frame;
-		capture >> nextFrame;
 
-		//RGB to Gray for Optical Flow     
-		cvtColor(frame, grayFrame, CV_BGR2GRAY);
-		cvtColor(nextFrame, nextGrayFrame, CV_BGR2GRAY);
+		if (frame.empty())
+			break;
 
-		FAST(frame, keypoints, threshold, nonmaxSupression);
+		frame.copyTo(image);
+		cvtColor(image, grayFrame, COLOR_BGR2GRAY);
 
-		for (vector<KeyPoint>::iterator it = keypoints.begin(); it != keypoints.end(); it++)
+		if (needToInit)
 		{
-			cornersA.push_back(it->pt);
+			// automatic initialization
+			FAST(grayFrame, keypoints, threshold, nonmaxSupression);
+			for (vector<KeyPoint>::iterator it = keypoints.begin(); it != keypoints.end(); it++)
+			{
+				cornersA.push_back(it->pt);
+			}
+			cornerSubPix(grayFrame, cornersA, subPixSize, Size(-1, -1), criteria);
 		}
-		cornerSubPix(grayFrame, cornersA, cv_size, cvSize(-1, -1), criteria);
-
-		calcOpticalFlowPyrLK(grayFrame, nextGrayFrame, cornersA, cornersB, features_found, feature_errors,
-			cv_size, maxLevel, criteria, 0);
-
-		IplImage image = grayFrame;
-		for (int i = 0; i < cornerCount; ++i)
+		else if (!cornersA.empty())
 		{
-			cvLine(&image, cvPoint(cornersA[i].x, cornersA[i].y), cvPoint(cornersB[i].x, cornersA[i].y), CV_RGB(0, 255, 0), 2);
+			vector<uchar> status;
+			vector<float> err;
+			if (prevGrayFrame.empty())
+				grayFrame.copyTo(prevGrayFrame);
+			calcOpticalFlowPyrLK(prevGrayFrame, grayFrame, cornersA, cornersB, status, err, windowSize,
+				maxLevel, criteria, 0, 0.001);
+			size_t i, k;
+
+			for (i = k = 0; i < cornersB.size(); i++)
+			{
+				if (!status[i])
+					continue;
+
+				cornersB[k++] = cornersB[i];
+//				circle(image, cornersB[i], 3, Scalar(0, 255, 0), -1, 8);
+				cvLine(&(IplImage)image, cvPoint(cornersA[i].x, cornersA[i].y), cvPoint(cornersB[i].x, cornersB[i].y), Scalar(0, 255, 0), 2);
+			}
+			cornersB.resize(k);
 		}
-		Mat result(&image);
 
-		//break        
-//		if (cvWaitKey(30) >= 0)
-//			break;
-//
-//		imshow("Origin", result);
+		needToInit = false;
+		imshow("Origin", image);
 
+		char c = (char)cvWaitKey(10);
+		if (c == 27)
+			break;
 
-		
+		std::swap(cornersB, cornersA);
+		cv::swap(prevGrayFrame, grayFrame);
 	}
-
 
 	//release capture point     
 	capture.release();
@@ -100,8 +106,8 @@ void main()
 	//for optical flow
 	int maxLevel = 3;
 	int winSize = 30;
-	int iterations = 15;
-	double epsilon = 0.3;
+	int iterations = 30;
+	double epsilon = 0.003;
 
 
 	//Video Load     
@@ -113,20 +119,20 @@ void main()
 	//Window     
 		namedWindow("Origin", 1);
 
-	for (maxLevel = 1; maxLevel <= 3; maxLevel++)
-	{
-		for (iterations = 2; iterations < 30; iterations++)
-		{
-			for (winSize = 5; winSize < 40; winSize += 5)
-			{
+//	for (maxLevel = 1; maxLevel <= 3; maxLevel++)
+//	{
+//		for (iterations = 2; iterations < 30; iterations++)
+//		{
+//			for (winSize = 5; winSize < 40; winSize += 5)
+//			{
 				clock_t timer = clock();
 				detect(file, threshold, nonmaxSupression, winSize, maxLevel, cornerCount, iterations, epsilon);
 				timer -= clock();
 				double timerSec = timer / CLOCKS_PER_SEC;
 				printf("Level: %d\n, Iterations: %d\n, WinSize: %d\n, Time: %f\n\n", maxLevel, iterations, winSize, timerSec);
-			}
-		}
-	}
+//			}
+//		}
+//	}
 
 	waitKey(0);
 	//close the window        
